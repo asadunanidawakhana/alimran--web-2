@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+@theme {
+  /* Professional SaaS Palette */
+  --color-primary: #2563eb; /* Modern Blue */
+  --color-primary-dark: #1e40af;
+  --color-secondary: #64748b; /* Slate Gray */
+  --color-background: #f8fafc; /* Very Light Slate */
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-foreground: #0f172a; /* Dark Slate */
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* Polished Geometry */
+  --radius-xl: 1rem;
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  
+  /* Soft Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-outfit: 'Outfit', sans-serif;
+  color-scheme: light;
+  
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-outfit);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+}
+
+/* --- Professional SaaS Component Classes --- */
+
+.saas-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.saas-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.saas-button {
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.saas-button:hover {
+  background: var(--color-primary-dark);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.saas-button:active {
+  transform: scale(0.98);
+}
+
+.badge-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-primary {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ── Print / PDF Export Styles ─────────────────── */
+@media print {
+  /* Hide everything except the grammar content */
+  body > * { display: none !important; }
+  .print-content, .print-content * { display: block !important; }
+  
+  /* Show the study area */
+  header, nav, footer,
+  .no-print,
+  [data-bottomnav],
+  .fixed { display: none !important; }
+
+  .print-content {
+    display: block !important;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    background: white;
+    padding: 24px;
+    font-family: 'Inter', sans-serif;
+    color: #0f172a;
+  }
+
+  .print-content > div {
+    break-inside: avoid;
+    margin-bottom: 24px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  @page {
+    margin: 2cm;
+    size: A4;
+  }
+}
