@@ -1,13 +1,24 @@
 // ==============================================================================
 // AL IMRAN TENSES LEARNER — GEMINI AI INTEGRATION
 // Handles API key validation, conversational Hinglish chat, and multi-step question analysis & solving with Medium support (English/Urdu).
+// Features Ultra-Easy English, Natural 2-Mark Short Answer Balance, and Data-Level Deduplication.
 // ==============================================================================
+
+import { simplifyEnglishForPakistaniStudents, shortenShortAnswer } from './englishSimplifier';
 
 const STORAGE_KEY = 'alimran_gemini_api_key';
 const MODEL_NAME = 'gemini-2.5-flash';
 const FALLBACK_MODEL_NAME = 'gemini-1.5-flash';
 
-export type SubjectType = 'English Grammar' | 'Physics' | 'Mathematics' | 'Chemistry';
+export type SubjectType =
+  | 'English Grammar'
+  | 'Physics'
+  | 'Mathematics'
+  | 'Chemistry'
+  | 'Computer'
+  | 'Biology'
+  | 'Mutala Pakistan';
+
 export type StudyMedium = 'English Medium' | 'Urdu Medium';
 
 export interface ChatMessage {
@@ -144,29 +155,48 @@ export async function validateApiKey(key: string): Promise<{ valid: boolean; mes
  */
 function getSubjectChatInstruction(subject: SubjectType): string {
   return `
-You are "Al Imran Tenses Learner AI", an expert and friendly Pakistani educational tutor specializing in ${subject}.
+You are "Al Imran Tenses Learner AI", an intelligent, friendly, and expert educational AI tutor specifically mentoring Pakistani school and college students in ${subject}.
 
-MANDATORY LANGUAGE RULE — STRICT HINGLISH / ROMAN URDU:
-1. You MUST ALWAYS communicate conversationally in Hinglish / Roman Urdu (e.g. "Present Perfect Tense ka use hum tab karte hain jab koi action past mein start hua ho aur uska relation present se ho.", "Is formula mein pehle velocity ko identify karo, phir distance aur time ki values put karo.").
-2. DO NOT write in Devanagari/Hindi script or Nastaliq Urdu script. Use Roman English letters.
-3. DO NOT reply entirely in formal English unless the student explicitly requests: "English only".
-4. Technical terms, scientific names, formulas, equations, mathematical steps, English grammar examples, and definitions MUST remain in correct English.
-5. Explanatory conversation and guidance must always be in clear, student-friendly Hinglish.
+CORE TUTOR BEHAVIOR & REAL ASSISTANT QUALITY:
+1. Converse naturally like a real, intelligent tutor (similar to ChatGPT or Gemini).
+2. UNDERSTAND MULTI-TURN CONVERSATION CONTEXT: Maintain previous chat context across all messages in the session. If the user asks a follow-up like "Give me an example", "Why is that?", or "What if the direction changes?", you must immediately know what topic they are referring to without asking them to repeat.
+3. AVOID ROBOTIC OPENERS: DO NOT begin every response with generic repetitive phrases like "Sure! Here is...", "Bilkul! Yahan hai...", "Sure thing!", or "Here's the answer". Use natural, varied conversational transitions.
+4. POLITE & ENCOURAGING: If a student makes a mistake, guide and correct them politely. If their query is genuinely ambiguous, ask a quick, helpful clarification question.
+5. STEP-BY-STEP EXPLANATIONS: When solving numerical problems, equations, or grammar transformations, explain the logic step by step.
 
-SUBJECT FOCUS (${subject}):
+DYNAMIC RESPONSE LENGTH (CRITICAL):
+- DO NOT give unnecessarily long essay answers by default.
+- For a SIMPLE QUESTION (e.g. "What is velocity?", "Define RAM"): Give a concise, direct, crystal-clear 2-4 line explanation with a simple relatable example.
+- For a "WHY" QUESTION: Explain the direct cause/reason clearly.
+- For "EXPLAIN IN DETAIL": Give a structured, comprehensive, point-by-point explanation.
+- For "SHORT ANSWER": Give a quick, high-yield 1-2 sentence exam definition.
+- Dynamically match the student's intent and question complexity.
+
+MANDATORY LANGUAGE RULE — HINGLISH / ROMAN URDU FOR PAKISTANI STUDENTS:
+1. You MUST ALWAYS communicate in easy, student-friendly Hinglish / Roman Urdu (e.g. "Velocity ka simple matlab speed with direction hota hai.", "Is question ko step-by-step solve karte hain taake concept clear ho jaye.", "Ye formula tab use hoga jab force aur mass ki values di hui hon.").
+2. DO NOT use Devanagari/Hindi script or Nastaliq Urdu script in this chat. Use clean Roman English letters for the conversation.
+3. Technical terms, formulas, scientific names, mathematical steps, code snippets, and English grammar examples MUST remain in clean, correct English.
+4. Keep explanations natural, engaging, and easy to memorize for Pakistani board exams (Matric, Inter/FSc, O/A Levels).
+
+SUBJECT SPECIFIC SPECIALIZATION (${subject}):
 ${subject === 'English Grammar' ? `
-- English tenses, formulas, structures, active/passive voice, direct/indirect speech, parts of speech, sentence correction, and exam tips.
+- Focus: English tenses (Present, Past, Future), formulas, sentence structures, active/passive voice, direct/indirect narration, parts of speech, prepositions, and exam correction tips.
 ` : ''}${subject === 'Physics' ? `
-- Physics concepts, formulas, definitions, SI units, numerical step-by-step problem solving, derivations, and exam preparation.
+- Focus: Physics concepts, definitions, SI units, scalar/vector quantities, formulas, derivations, step-by-step numerical problem solving, and board exam preparation.
 ` : ''}${subject === 'Mathematics' ? `
-- Math concepts, formulas, equations, algebra, geometry, trigonometry, step-by-step numerical solutions, and clear proofs.
+- Focus: Math concepts, formulas, algebraic expressions, quadratic equations, geometry, trigonometry, matrices, step-by-step numerical solutions, and clear proofs.
 ` : ''}${subject === 'Chemistry' ? `
-- Chemical equations, reactions, atomic structure, periodic table, definitions, stoichiometry numericals, organic/inorganic chemistry, and exam tips.
+- Focus: Chemical reactions, balanced equations, atomic structure, periodic table, chemical bonding (ionic/covalent), stoichiometry numericals, organic/inorganic chemistry, and definitions.
+` : ''}${subject === 'Computer' ? `
+- Focus: Computer basics, hardware components (CPU, RAM, ROM, storage), system and application software, operating systems, programming fundamentals (variables, loops, conditions, algorithms, flowcharts), computer networks, internet & web technologies, databases, data structures, and IT concepts for exams.
+` : ''}${subject === 'Biology' ? `
+- Focus: Biology concepts, cell structure & organelles, human anatomy and organ systems, genetics and DNA, plant physiology (photosynthesis, transpiration), animal biology, classification, biological processes, diagrams/concept breakdowns, and exam preparation.
+` : ''}${subject === 'Mutala Pakistan' ? `
+- Focus: Pakistan Studies / Mutala Pakistan syllabus, Pakistan Movement (Tehreek-e-Pakistan), Two-Nation Theory, key personalities (Quaid-e-Azam, Allama Iqbal, Sir Syed Ahmad Khan), 1947 partition, important historical events (1906, 1940, 1973 Constitution), geography of Pakistan (rivers, mountains, climate, provinces), national culture, resources, foreign policy, and board exam preparation.
 ` : ''}
 
-TONE & FORMAT:
-- Very encouraging, student-friendly, and educational.
-- If asked an unrelated question from a different subject, politely guide the student back to ${subject} in Hinglish.
+SUBJECT CONTEXT ISOLATION:
+- Remain strictly focused on ${subject}.
 `;
 }
 
@@ -181,6 +211,10 @@ export async function sendChatMessage(
 ): Promise<string> {
   const systemInstruction = getSubjectChatInstruction(subject);
 
+  const validHistory = history
+    .filter((m) => m && m.content && m.content.trim())
+    .slice(-12);
+
   const contents = [
     {
       role: 'user',
@@ -188,9 +222,9 @@ export async function sendChatMessage(
     },
     {
       role: 'model',
-      parts: [{ text: `Bilkul! Main Al Imran Tenses Learner AI hoon aur ${subject} mein aapki poori madad karunga. Aap apna sawal poochein!` }],
+      parts: [{ text: `Aoa! Main Al Imran AI tutor hoon. ${subject} se related aapka jo bhi sawal ya concept hai, poochein!` }],
     },
-    ...history.map((m) => ({
+    ...validHistory.map((m) => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
     })),
@@ -208,7 +242,7 @@ export async function sendChatMessage(
     body: JSON.stringify({
       contents,
       generationConfig: {
-        temperature: 0.7,
+        temperature: 0.65,
         topP: 0.95,
         maxOutputTokens: 2048,
       },
@@ -223,7 +257,7 @@ export async function sendChatMessage(
       body: JSON.stringify({
         contents,
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.65,
           topP: 0.95,
           maxOutputTokens: 2048,
         },
@@ -360,20 +394,22 @@ CRITICAL INSTRUCTIONS:
 export function validateMediumLanguage(text: string, medium: StudyMedium): boolean {
   if (!text || !text.trim()) return false;
   
-  // Check for Arabic/Urdu Unicode range (\u0600-\u06FF)
   const hasUrduCharacters = /[\u0600-\u06FF]/.test(text);
 
   if (medium === 'Urdu Medium') {
-    // Must contain Urdu script
     return hasUrduCharacters;
   } else {
-    // English medium should primarily be Latin/English characters
     return !hasUrduCharacters || text.length > 5;
   }
 }
 
 /**
  * STEP 2: Solves ONLY the selected questions and ALL their parts in the chosen Medium & Mode.
+ * Enforces:
+ * - Natural 2-Mark Short Answer Balance (Rules 42-45: Short + Complete + Slight explanation when needed)
+ * - Ultra-Easy English for Pakistani students (Mandatory Word Replacement Rules)
+ * - Easy Proper Urdu Script for Urdu Medium notes
+ * - Strict 1:1 question-to-answer attachment and zero markdown clutter
  */
 export async function solveSelectedQuestions(
   selectedQuestions: DetectedQuestion[],
@@ -385,39 +421,58 @@ export async function solveSelectedQuestions(
   const isUrduMedium = medium === 'Urdu Medium';
 
   const solverPrompt = `
-You are an expert exam teacher for Al Imran Tenses Learner creating official exam revision notes.
+You are an expert educational master teacher for Al Imran Tenses Learner creating official board exam revision notes for Pakistani school/college students (Matric / FSc level).
 
 SUBJECT: ${subject}
 STUDY MEDIUM: ${medium} (CRITICAL: THIS STRICTLY CONTROLS THE LANGUAGE OF THE ANSWER)
+MODE: ${mode.toUpperCase()}
 
-CRITICAL LANGUAGE RULES:
-${isUrduMedium ? `
-MANDATORY — PROPER URDU SCRIPT:
-1. The answers MUST be written primarily in PROPER URDU SCRIPT (اردو رسم الخط).
-2. DO NOT write answers in Roman Urdu or Hinglish.
-3. Use clear, easy, student-friendly Urdu suitable for Urdu-Medium school/college board exams (e.g. "وہ حرکت جس میں جسم وقت کے برابر وقفوں میں برابر فاصلہ طے کرے...").
-4. PRESERVE formulas, equations, scientific symbols, units (e.g. m/s, kg, N, J), and standard English technical terms (e.g. F = ma, v = s/t) in clean English notation without breaking the Urdu flow.
-` : `
-MANDATORY — EASY EXAM-READY ENGLISH:
-1. The answers MUST be written in EASY, SIMPLE, CLEAR, EXAM-READY ENGLISH.
-2. DO NOT translate into Urdu or Roman Urdu.
-3. Avoid unnecessarily difficult vocabulary. Keep sentences simple and direct.
-`}
-
-CRITICAL SHORT / LONG FORMAT RULES:
 ${mode === 'short' ? `
-SHORT MODE RULES:
-- Target: MAXIMUM 1.5 to 2 lines per simple 2-mark question/part.
-- Very easy wording that a student can quickly memorize.
-- Direct answer first. No unnecessary paragraphs or fluff.
-- Preserve key definitions, formulas, or required points for full 2 marks.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL MANDATORY RULE: NATURAL 2-MARK BALANCE FOR SHORT ANSWERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. TARGET: SHORT + COMPLETE + SLIGHT SUPPORTING EXPLANATION + EASY TO MEMORIZE.
+2. Structure:
+   - Direct Answer
+   - Plus ONE short supporting explanation phrase/clause where it helps completeness.
+3. Length: Approximately 1 concise sentence OR 2 short sentences (about 1–2 lines).
+4. EXAMPLES OF BALANCED 2-MARK SHORT ANSWERS:
+   - "What is photosynthesis?" -> "Photosynthesis is the process by which green plants make their food using sunlight." (NOT overly chopped like "Plants make food", and NOT a long paragraph).
+   - "What is velocity?" -> "Velocity is the speed of an object in a particular direction."
+   - "What is force?" -> "Force is a push or pull that can change the motion or direction of an object."
+   - "What is a database?" -> "A database is an organized collection of data stored in a computer."
+   - "Write the formula for force" -> "F = ma (where F is force, m is mass, and a is acceleration)."
+   - "State the SI unit of power" -> "Watt (W) or Joules per second (J/s)."
+5. Avoid BOTH extremes:
+   - NOT too short / incomplete fragments.
+   - NOT paragraph-style essays.
 ` : `
-LONG MODE RULES:
-- Target: Comprehensive ~6-mark answer.
-- Structure intelligently with Definition, Main Points, Formulas / Steps, and Examples.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LONG MODE (6-MARK QUESTION):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Comprehensive, structured answer with Definition, Main Points, Formula/Steps, and relevant Examples.
+- Keep vocabulary simple even when the answer is detailed.
 `}
 
-ORIGINAL QUESTIONS TO SOLVE:
+${!isUrduMedium ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ULTRA-EASY ENGLISH FOR PAKISTANI STUDENTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Use simple, everyday words ("use" not "utilize", "start" not "commence", "about" not "approximately", "show" not "demonstrate", "get" not "obtain", "so" not "therefore/consequently", "many" not "numerous", "needed" not "required", "help" not "assist", "parts" not "components", "basic" not "fundamental", "make" not "synthesize").
+- Short, simple sentences. No complex academic jargon.
+` : `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EASY PROPER URDU SCRIPT (اردو رسم الخط):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Written in clean proper Urdu script (اردو رسم الخط).
+- Simple educational Urdu suitable for Pakistani board exams.
+- Preserve formulas, SI units, and scientific notation in English notation.
+`}
+
+NO MARKDOWN FORMATTING SYMBOLS IN ANSWER VALUES:
+- Provide clean plain text without **bold**, *italic*, ###, or backticks.
+
+QUESTIONS TO SOLVE:
 ${JSON.stringify(selectedQuestions, null, 2)}
 
 OUTPUT SCHEMA (STRICT JSON ONLY):
@@ -430,7 +485,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
         {
           "partId": "(a)",
           "questionText": "Question text of part (a)",
-          "answer": "${isUrduMedium ? 'اردو میں درست، جامع اور آسان امتحانی جواب' : 'Exact, concise, exam-ready answer in easy English.'}"
+          "answer": "${isUrduMedium ? 'آسان اردو میں مختصر اور جامع 2 نمبر امتحانی جواب' : 'Balanced, complete 2-mark exam answer in easy English.'}"
         }
       ]
     }
@@ -445,7 +500,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
       },
     ],
     generationConfig: {
-      temperature: 0.2,
+      temperature: 0.15,
       responseMimeType: 'application/json',
     },
   };
@@ -482,13 +537,33 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     const parsed = JSON.parse(text);
     const solvedList: SolvedQuestionItem[] = parsed.solvedQuestions || [];
 
-    // VALIDATION: Check that all selected questions and their subparts exist
+    // Post-process: English Simplification + Short Answer Optimization
+    const processedList = solvedList.map((item) => ({
+      ...item,
+      mainQuestionText: isUrduMedium ? item.mainQuestionText : simplifyEnglishForPakistaniStudents(item.mainQuestionText),
+      parts: (item.parts || []).map((p) => {
+        let finalAnswer = p.answer || '';
+        if (!isUrduMedium) {
+          finalAnswer = simplifyEnglishForPakistaniStudents(finalAnswer);
+          if (mode === 'short') {
+            finalAnswer = shortenShortAnswer(p.questionText || '', finalAnswer, false);
+          }
+        }
+        return {
+          ...p,
+          questionText: isUrduMedium ? p.questionText : simplifyEnglishForPakistaniStudents(p.questionText),
+          answer: finalAnswer,
+        };
+      }),
+    }));
+
+    // Attach any missing selected questions to prevent dropouts
     for (const originalQ of selectedQuestions) {
-      const match = solvedList.find(
-        (s) => s.questionNumber.toLowerCase() === originalQ.questionNumber.toLowerCase()
+      const match = processedList.find(
+        (s) => s.questionNumber && s.questionNumber.toLowerCase() === originalQ.questionNumber.toLowerCase()
       );
       if (!match) {
-        solvedList.push({
+        processedList.push({
           questionNumber: originalQ.questionNumber,
           mainQuestionText: originalQ.fullText || originalQ.title,
           parts: originalQ.parts.map((p) => ({
@@ -500,7 +575,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
       }
     }
 
-    return solvedList;
+    return processedList;
   } catch {
     throw new Error('Failed to parse solved notes format.');
   }

@@ -16,6 +16,9 @@ import {
   Atom,
   Calculator,
   FlaskConical,
+  Laptop,
+  Dna,
+  Landmark,
   HelpCircle,
   AlertCircle,
   Lightbulb,
@@ -63,6 +66,33 @@ const SUBJECTS: { type: SubjectType; title: string; desc: string; icon: any; col
     bg: 'bg-amber-50',
     border: 'border-amber-200',
   },
+  {
+    type: 'Computer',
+    title: 'Computer',
+    desc: 'Hardware, software, OS, programming basics, databases, networks & IT concepts.',
+    icon: Laptop,
+    color: 'text-cyan-600',
+    bg: 'bg-cyan-50',
+    border: 'border-cyan-200',
+  },
+  {
+    type: 'Biology',
+    title: 'Biology',
+    desc: 'Cell biology, human systems, genetics, plants, animals, processes & diagrams.',
+    icon: Dna,
+    color: 'text-teal-600',
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+  },
+  {
+    type: 'Mutala Pakistan',
+    title: 'Mutala Pakistan',
+    desc: 'Pakistan Studies, Pakistan Movement, personalities, history, geography & constitution.',
+    icon: Landmark,
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
 ];
 
 const SUGGESTIONS_MAP: Record<SubjectType, string[]> = {
@@ -90,7 +120,35 @@ const SUGGESTIONS_MAP: Record<SubjectType, string[]> = {
     'Boyle\'s Law aur Charles\'s Law explain karein',
     'Periodic table ke groups aur periods ka concept?',
   ],
+  'Computer': [
+    'RAM aur ROM mein main difference kya hai?',
+    'Operating System ka role aur types explain karein',
+    'Compiler aur Interpreter mein kya farq hota hai?',
+    'Computer networks (LAN, WAN) simple words mein samjhayein',
+  ],
+  'Biology': [
+    'Photosynthesis ka process simple steps mein explain karein',
+    'Plant cell aur Animal cell mein main differences?',
+    'Mitosis aur Meiosis mein kya farq hota hai?',
+    'DNA ka basic structure aur function kya hai?',
+  ],
+  'Mutala Pakistan': [
+    'Two-Nation Theory (Do Qomi Nazriya) ka basic concept?',
+    'Lahore Resolution 1940 ke key points kya thay?',
+    'Pakistan ke important geographical features aur borders?',
+    'Quaid-e-Azam ke 14 Points ki brief explanation?',
+  ],
 };
+
+const ALL_SUBJECT_NAMES = [
+  'English Grammar',
+  'Physics',
+  'Mathematics',
+  'Chemistry',
+  'Computer',
+  'Biology',
+  'Mutala Pakistan',
+];
 
 export default function AiChatPage() {
   const router = useRouter();
@@ -108,7 +166,7 @@ export default function AiChatPage() {
   // Load subject from local storage or session
   useEffect(() => {
     const savedSubject = localStorage.getItem('alimran_chat_selected_subject') as SubjectType | null;
-    if (savedSubject && ['English Grammar', 'Physics', 'Mathematics', 'Chemistry'].includes(savedSubject)) {
+    if (savedSubject && ALL_SUBJECT_NAMES.includes(savedSubject)) {
       setSelectedSubject(savedSubject);
     }
   }, []);
@@ -173,6 +231,7 @@ export default function AiChatPage() {
     setIsLoading(true);
 
     try {
+      // Pass full conversation history for multi-turn context retention
       const aiReply = await sendChatMessage(messages, query, selectedSubject, apiKey);
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
@@ -223,7 +282,7 @@ export default function AiChatPage() {
   if (!selectedSubject) {
     return (
       <div className="min-h-screen bg-slate-50 p-6 md:p-10 pb-32">
-        <div className="max-w-3xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/ai')}
@@ -241,12 +300,12 @@ export default function AiChatPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-5 border border-slate-200 text-xs font-medium text-slate-600 leading-relaxed">
-            AI aapke sath natural <strong className="text-slate-900">Hinglish / Roman Urdu</strong> mein baat karega aur chune huye subject ke according tailored answers dega.
+          <div className="bg-white rounded-3xl p-5 border border-slate-200 text-xs font-medium text-slate-600 leading-relaxed shadow-xs">
+            AI aapke sath natural <strong className="text-slate-900">Hinglish / Roman Urdu</strong> mein intelligent tutor ki tarah baat karega aur chune huye subject ke exact context ke according concise aur relevant answers dega.
           </div>
 
-          {/* Subject Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Subject Cards (7 Subjects Grid) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {SUBJECTS.map((sub) => {
               const Icon = sub.icon;
               return (
@@ -255,20 +314,20 @@ export default function AiChatPage() {
                   whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSelectSubject(sub.type)}
-                  className="bg-white rounded-[2rem] p-6 border border-slate-200 hover:border-blue-400 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between group space-y-4"
+                  className="bg-white rounded-[2rem] p-5 border border-slate-200 hover:border-blue-400 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between group space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <div className={`w-12 h-12 rounded-2xl ${sub.bg} ${sub.color} flex items-center justify-center border ${sub.border} shadow-xs`}>
-                      <Icon className="w-6 h-6" />
+                    <div className={`w-11 h-11 rounded-2xl ${sub.bg} ${sub.color} flex items-center justify-center border ${sub.border} shadow-xs`}>
+                      <Icon className="w-5 h-5" />
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                   </div>
 
                   <div className="space-y-1">
-                    <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
                       {sub.title}
                     </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    <p className="text-[11px] text-slate-500 leading-relaxed font-medium line-clamp-2">
                       {sub.desc}
                     </p>
                   </div>
@@ -358,7 +417,7 @@ export default function AiChatPage() {
                 {selectedSubject} mein kya poochna chahte hain?
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                Apna question Hinglish ya English mein poochein. AI aapko easy Hinglish explanation aur exam-ready points ke sath guide karega.
+                Apna sawal Hinglish ya English mein poochein. AI aapko real tutor ki tarah concise aur context-aware guide karega.
               </p>
             </div>
 

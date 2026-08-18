@@ -2,9 +2,12 @@
 // AL IMRAN TENSES LEARNER — HIGH-RESOLUTION MULTI-QUESTION NOTE RENDERER
 // Converts verified multi-part questions & answers into a branded study note image.
 // Full RTL / Urdu Script and English Medium Support.
+// Features automatic Markdown symbol cleanup, Ultra-Easy English polish, and duplicate protection.
 // ==============================================================================
 
 import { SubjectType, StudyMedium, SolvedQuestionItem } from './gemini';
+import { deduplicateSolvedQuestions } from './noteDeduplicator';
+import { simplifyEnglishForPakistaniStudents } from './englishSimplifier';
 
 export interface MultiNoteRenderOptions {
   subject: SubjectType;
@@ -23,6 +26,41 @@ function hasUrduChars(text: string): boolean {
 }
 
 /**
+ * Strips raw Markdown artifacts and polishes English text for Pakistani students.
+ * Preserves mathematical notations, units, and symbols.
+ */
+export function cleanMarkdownForCanvas(text: string): string {
+  if (!text) return '';
+
+  const cleanMarkdown = text
+    // Remove code block ticks
+    .replace(/```[a-z]*\n?/gi, '')
+    .replace(/```/g, '')
+    // Remove inline code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove bold and italic markers: **text**, __text__, *text*, _text_
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    // Remove markdown headers: #, ##, ###, ####
+    .replace(/^#{1,6}\s+/gm, '')
+    // Normalize markdown list bullets into clean bullet points
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    // Normalize numbering formatting
+    .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
+    // Clean up multiple asterisks or hashes
+    .replace(/[*#~]/g, '')
+    .trim();
+
+  // If text is not Urdu script, apply Ultra-Easy English word simplification
+  if (!hasUrduChars(cleanMarkdown)) {
+    return simplifyEnglishForPakistaniStudents(cleanMarkdown);
+  }
+
+  return cleanMarkdown;
+}
+
+/**
  * Wraps text into lines that fit within a maximum width on the canvas.
  */
 function wrapText(
@@ -30,8 +68,9 @@ function wrapText(
   text: string,
   maxWidth: number
 ): string[] {
+  const cleanStr = cleanMarkdownForCanvas(text);
   const lines: string[] = [];
-  const rawParagraphs = (text || '').split('\n');
+  const rawParagraphs = (cleanStr || '').split('\n');
 
   for (const paragraph of rawParagraphs) {
     if (!paragraph.trim()) {
@@ -69,12 +108,14 @@ export async function renderMultiNoteImage(options: MultiNoteRenderOptions): Pro
   const {
     subject,
     medium,
-    questions,
+    questions: rawQuestions,
     noteType,
     dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     watermarkText = 'AL IMRAN TENSES LEARNER AI',
   } = options;
 
+  // Final Data-Level Deduplication Scan before rendering
+  const questions = deduplicateSolvedQuestions(rawQuestions);
   const isUrduMedium = medium === 'Urdu Medium';
 
   // Render at high resolution (2x scaling)
@@ -119,7 +160,8 @@ export async function renderMultiNoteImage(options: MultiNoteRenderOptions): Pro
 
   for (const q of questions) {
     mctx.font = fontQuestion;
-    const mainTextLines = q.mainQuestionText ? wrapText(mctx, q.mainQuestionText, contentWidth - 40) : [];
+    const cleanMain = cleanMarkdownForCanvas(q.mainQuestionText || '');
+    const mainTextLines = cleanMain ? wrapText(mctx, cleanMain, contentWidth - 40) : [];
     let blockHeight = 40 + (mainTextLines.length > 0 ? mainTextLines.length * 24 + 10 : 0);
 
     const measuredParts: MeasuredQuestionBlock['parts'] = [];
@@ -127,11 +169,13 @@ export async function renderMultiNoteImage(options: MultiNoteRenderOptions): Pro
     if (q.parts && q.parts.length > 0) {
       for (const p of q.parts) {
         mctx.font = fontQuestion;
-        const qLines = p.questionText ? wrapText(mctx, `${p.partId ? p.partId + ' ' : ''}${p.questionText}`, contentWidth - 60) : [];
+        const cleanQText = cleanMarkdownForCanvas(p.questionText || '');
+        const qLines = cleanQText ? wrapText(mctx, `${p.partId ? p.partId + ' ' : ''}${cleanQText}`, contentWidth - 60) : [];
         
         mctx.font = fontAnswer;
-        const aLines = wrapText(mctx, p.answer || '', contentWidth - 60);
-        const isRTL = isUrduMedium || hasUrduChars(p.answer || '');
+        const cleanAnswer = cleanMarkdownForCanvas(p.answer || '');
+        const aLines = wrapText(mctx, cleanAnswer, contentWidth - 60);
+        const isRTL = isUrduMedium || hasUrduChars(cleanAnswer);
 
         const lineSpacing = isUrduMedium ? 28 : 22;
         const partHeight = (qLines.length > 0 ? qLines.length * 22 + 8 : 0) + (aLines.length * lineSpacing + 24) + 16;
@@ -323,7 +367,7 @@ export async function renderMultiNoteImage(options: MultiNoteRenderOptions): Pro
 
     // Subparts & Answers
     for (const part of block.parts) {
-      // Subpart Question (Always in original language)
+      // Subpart Question
       if (part.qLines.length > 0) {
         ctx.fillStyle = '#0f172a';
         ctx.font = '600 14px Inter, sans-serif';

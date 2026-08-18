@@ -18,11 +18,18 @@ export default function AppLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useGameStore();
+  const { user, syncWithDatabase } = useGameStore();
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
 
   // Hide UI for immersive modes
   const isImmersive = pathname?.includes('/battle') || pathname?.includes('/learn/');
+
+  // Authoritative Database Sync for XP, Level, and Realtime Listeners
+  useEffect(() => {
+    if (user?.id) {
+      syncWithDatabase();
+    }
+  }, [user?.id, syncWithDatabase]);
 
   useEffect(() => {
     if (!user) return;
@@ -186,5 +193,3 @@ export default function AppLayout({
     </BanGuard>
   );
 }
-
-

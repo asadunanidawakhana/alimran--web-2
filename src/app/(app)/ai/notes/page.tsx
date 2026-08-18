@@ -23,6 +23,9 @@ import {
   Atom,
   Calculator,
   FlaskConical,
+  Laptop,
+  Dna,
+  Landmark,
   CheckSquare,
   Square,
   Globe,
@@ -39,6 +42,7 @@ import {
   SolvedQuestionItem,
   AnalyzedNoteResult,
 } from '@/lib/gemini';
+import { deduplicateDetectedQuestions, deduplicateSolvedQuestions } from '@/lib/noteDeduplicator';
 import { renderMultiNoteImage, downloadDataUrlAsPng } from '@/lib/noteRenderer';
 import { showToast } from '@/components/ToastNotification';
 import ApiKeyModal from '@/components/ai/ApiKeyModal';
@@ -79,6 +83,33 @@ const SUBJECTS: { type: SubjectType; title: string; desc: string; icon: any; col
     color: 'text-amber-600',
     bg: 'bg-amber-50',
     border: 'border-amber-200',
+  },
+  {
+    type: 'Computer',
+    title: 'Computer',
+    desc: 'Hardware, software, programming basics, databases, networks & IT concepts.',
+    icon: Laptop,
+    color: 'text-cyan-600',
+    bg: 'bg-cyan-50',
+    border: 'border-cyan-200',
+  },
+  {
+    type: 'Biology',
+    title: 'Biology',
+    desc: 'Cell biology, anatomy, genetics, plants, animals, diagrams & processes.',
+    icon: Dna,
+    color: 'text-teal-600',
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+  },
+  {
+    type: 'Mutala Pakistan',
+    title: 'Mutala Pakistan',
+    desc: 'Pakistan Studies, Pakistan Movement, constitution, history & geography.',
+    icon: Landmark,
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
   },
 ];
 
@@ -167,7 +198,7 @@ export default function AiNoteGeneratorPage() {
     setImages((prev) => prev.filter((img) => img.id !== id));
   };
 
-  // Run Question Detection on Complete Images
+  // Run Question Detection on Complete Images with Deduplication Protection
   const handleAnalyzeImages = async () => {
     const apiKey = getStoredApiKey();
     if (!apiKey) {
@@ -184,7 +215,7 @@ export default function AiNoteGeneratorPage() {
     setIsUnclear(false);
 
     try {
-      const allDetected: DetectedQuestion[] = [];
+      const rawDetected: DetectedQuestion[] = [];
       let foundUnclear = false;
 
       for (let idx = 0; idx < images.length; idx++) {
@@ -196,16 +227,16 @@ export default function AiNoteGeneratorPage() {
           setUnclearNote(res.unreadableNote || 'Image was too blurry or cropped to read clearly.');
         } else {
           res.questions.forEach((q, qIdx) => {
-            allDetected.push({
+            rawDetected.push({
               ...q,
               id: `img${idx}_q${qIdx}_${q.id || qIdx}`,
-              questionNumber: q.questionNumber || `Question ${allDetected.length + 1}`,
+              questionNumber: q.questionNumber || `Question ${rawDetected.length + 1}`,
             });
           });
         }
       }
 
-      if (foundUnclear && allDetected.length === 0) {
+      if (foundUnclear && rawDetected.length === 0) {
         setIsUnclear(true);
         setCurrentStep('upload');
         showToast({
@@ -215,6 +246,9 @@ export default function AiNoteGeneratorPage() {
         });
         return;
       }
+
+      // Apply Data-Level Deduplication Engine
+      const allDetected = deduplicateDetectedQuestions(rawDetected);
 
       if (allDetected.length === 0) {
         allDetected.push({
@@ -233,7 +267,7 @@ export default function AiNoteGeneratorPage() {
       showToast({
         type: 'success',
         title: 'Analysis Complete',
-        message: `Detected ${allDetected.length} questions across the image(s).`,
+        message: `Detected ${allDetected.length} unique questions across image(s).`,
       });
     } catch (err: any) {
       showToast({ type: 'error', title: 'Analysis Error', message: err?.message || 'Failed to detect questions.' });
@@ -255,7 +289,7 @@ export default function AiNoteGeneratorPage() {
     }
   };
 
-  // Targeted Solving of Selected Questions in Selected Medium
+  // Targeted Solving of Selected Questions in Selected Medium with Zero Duplicate Guarantee
   const handleGenerateFinalNotes = async () => {
     const apiKey = getStoredApiKey();
     if (!apiKey) {
@@ -263,17 +297,20 @@ export default function AiNoteGeneratorPage() {
       return;
     }
 
-    const selectedToSolve = detectedQuestions.filter((q) => selectedQuestionIds.includes(q.id));
-    if (selectedToSolve.length === 0) {
+    const rawSelectedToSolve = detectedQuestions.filter((q) => selectedQuestionIds.includes(q.id));
+    if (rawSelectedToSolve.length === 0) {
       showToast({ type: 'warning', title: 'No Selection', message: 'Please select at least one question to solve.' });
       return;
     }
+
+    // Deduplicate input questions before solver
+    const selectedToSolve = deduplicateDetectedQuestions(rawSelectedToSolve);
 
     setCurrentStep('solving');
 
     try {
       // 1. Solve all selected questions & parts with Medium context
-      let solvedList: SolvedQuestionItem[] = await solveSelectedQuestions(
+      let rawSolvedList: SolvedQuestionItem[] = await solveSelectedQuestions(
         selectedToSolve,
         selectedMode,
         selectedSubject,
@@ -283,11 +320,10 @@ export default function AiNoteGeneratorPage() {
 
       // 2. Validate Medium Language
       if (selectedMedium === 'Urdu Medium') {
-        const firstAnswer = solvedList?.[0]?.parts?.[0]?.answer || '';
+        const firstAnswer = rawSolvedList?.[0]?.parts?.[0]?.answer || '';
         const isValidUrdu = validateMediumLanguage(firstAnswer, 'Urdu Medium');
         if (!isValidUrdu && firstAnswer.length > 5) {
-          // Retry once if Urdu was not returned
-          solvedList = await solveSelectedQuestions(
+          rawSolvedList = await solveSelectedQuestions(
             selectedToSolve,
             selectedMode,
             selectedSubject,
@@ -297,7 +333,10 @@ export default function AiNoteGeneratorPage() {
         }
       }
 
-      // 3. Render high-resolution canvas note image
+      // 3. Data-Level Deduplication & Normalization on Solved Output
+      const solvedList = deduplicateSolvedQuestions(rawSolvedList);
+
+      // 4. Render high-resolution canvas note image (Single Pass)
       const renderedImageUrl = await renderMultiNoteImage({
         subject: selectedSubject,
         medium: selectedMedium,
@@ -376,13 +415,13 @@ export default function AiNoteGeneratorPage() {
       <main className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
         
         {/* ========================================================================= */}
-        {/* STEP 1: SUBJECT SELECTION                                                */}
+        {/* STEP 1: SUBJECT SELECTION (7 SUBJECTS)                                   */}
         {/* ========================================================================= */}
         {currentStep === 'subject' && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6 max-w-3xl mx-auto"
+            className="space-y-6 max-w-4xl mx-auto"
           >
             <div className="text-center space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
@@ -392,11 +431,11 @@ export default function AiNoteGeneratorPage() {
                 Select Subject for Notes
               </h2>
               <p className="text-xs text-slate-500 font-medium max-w-md mx-auto">
-                Gemini will analyze your question photos according to the selected subject rules and exam criteria.
+                Gemini will analyze your question photos according to the selected subject rules, syllabus topics, and exam criteria.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {SUBJECTS.map((sub) => {
                 const Icon = sub.icon;
                 return (
@@ -408,20 +447,20 @@ export default function AiNoteGeneratorPage() {
                       setSelectedSubject(sub.type);
                       setCurrentStep('medium');
                     }}
-                    className="bg-white rounded-[2rem] p-6 border border-slate-200 hover:border-blue-400 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between group space-y-4"
+                    className="bg-white rounded-[2rem] p-5 border border-slate-200 hover:border-blue-400 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between group space-y-3"
                   >
                     <div className="flex items-center justify-between">
-                      <div className={`w-12 h-12 rounded-2xl ${sub.bg} ${sub.color} flex items-center justify-center border ${sub.border} shadow-xs`}>
-                        <Icon className="w-6 h-6" />
+                      <div className={`w-11 h-11 rounded-2xl ${sub.bg} ${sub.color} flex items-center justify-center border ${sub.border} shadow-xs`}>
+                        <Icon className="w-5 h-5" />
                       </div>
-                      <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                     </div>
 
                     <div className="space-y-1">
-                      <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                      <h3 className="text-base font-bold text-slate-900 tracking-tight">
                         {sub.title}
                       </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium line-clamp-2">
                         {sub.desc}
                       </p>
                     </div>
@@ -449,7 +488,7 @@ export default function AiNoteGeneratorPage() {
                 Select Your Study Language
               </h2>
               <p className="text-xs text-slate-500 font-medium max-w-md mx-auto">
-                Subject: <strong className="text-slate-900">{selectedSubject}</strong>. Choose whether you want the exam notes in Urdu Script or Easy English.
+                Subject: <strong className="text-slate-900">{selectedSubject}</strong>. Choose whether you want the exam notes in Easy Urdu Script or Easy English.
               </p>
             </div>
 
@@ -505,7 +544,7 @@ export default function AiNoteGeneratorPage() {
                   </span>
                   <h3 className="text-xl font-bold text-slate-900">English Medium</h3>
                   <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                    Easy, direct, and concise English suitable for English-Medium board exam preparation.
+                    Easy, direct, and concise English suitable for Pakistani school and college board exam preparation.
                   </p>
                 </div>
               </motion.button>
@@ -702,7 +741,7 @@ export default function AiNoteGeneratorPage() {
                 Scanning Complete Image...
               </h2>
               <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto">
-                Gemini is identifying all individual questions, subparts (a, b, c...), and question types.
+                Gemini is identifying all individual questions, subparts (a, b, c...), and question types with duplicate prevention.
               </p>
             </div>
           </motion.div>

@@ -31,6 +31,7 @@ export interface User {
 
 interface GameState {
   user: User | null;
+  isProfileLoaded: boolean;
   setUser: (user: User) => void;
   updateXP: (amount: number) => Promise<void>;
   updateHearts: (amount: number) => Promise<void>;
@@ -41,6 +42,7 @@ interface GameState {
   usePerk: (perk: 'hints' | 'refills') => Promise<boolean>;
   completeTopic: (id: string) => Promise<void>;
   completeTest: (score: number, total: number) => Promise<void>;
+  refreshUserFromDatabase: () => Promise<void>;
   syncWithDatabase: () => void;
   awardTimeXP: () => Promise<void>;
   setBanInfo: (info: any) => void;
@@ -50,39 +52,96 @@ interface GameState {
 let activeChannel: RealtimeChannel | null = null;
 let banChannel: RealtimeChannel | null = null;
 let timeXPInterval: ReturnType<typeof setInterval> | null = null;
+let isUpdatingXP = false;
 
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       user: null,
+      isProfileLoaded: false,
       setUser: (user) => set((state) => {
         const existingUser = state.user;
-        const mergedUser = {
+        const mergedUser: User = {
           ...user,
+          xp: user.xp !== undefined && user.xp !== null ? user.xp : (existingUser?.xp ?? 0),
+          level: user.level || (user.xp !== undefined ? Math.floor(user.xp / 100) + 1 : (existingUser?.level ?? 1)),
           perks: user.perks || existingUser?.perks || { hints: 3, refills: 2 },
           completed_topics: user.completed_topics || existingUser?.completed_topics || [],
           hearts: user.hearts ?? existingUser?.hearts ?? 5,
-          xp: user.xp ?? existingUser?.xp ?? 0,
           coins: user.coins ?? existingUser?.coins ?? 0,
           avatar_url: user.avatar_url || existingUser?.avatar_url || '',
         };
-        return { user: mergedUser as User };
+        return { user: mergedUser, isProfileLoaded: true };
       }),
-      updateXP: async (amount) => {
+
+      refreshUserFromDatabase: async () => {
         const { user } = get();
-        if (!user) return;
-        const newXP = Math.max(0, user.xp + amount);
-        const newLevel = Math.floor(newXP / 100) + 1;
-        set({ user: { ...user, xp: newXP, level: newLevel } });
+        if (!user?.id) return;
+
         try {
-          await supabase.from('users').update({ xp: newXP, level: newLevel }).eq('id', user.id);
+          const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            console.warn('Could not refresh profile from Supabase:', error.message);
+            return;
+          }
+
+          if (data) {
+            const calculatedLevel = data.level || Math.floor((data.xp || 0) / 100) + 1;
+            set({
+              user: {
+                ...user,
+                ...data,
+                xp: data.xp ?? user.xp ?? 0,
+                level: calculatedLevel,
+                coins: data.coins ?? user.coins ?? 0,
+                hearts: data.hearts ?? user.hearts ?? 5,
+                perks: data.perks ?? user.perks ?? { hints: 3, refills: 2 },
+                completed_topics: data.completed_topics ?? user.completed_topics ?? [],
+              },
+              isProfileLoaded: true,
+            });
+          }
         } catch (err) {
-          console.error('Failed to sync XP:', err);
+          console.error('Error fetching user profile from Supabase:', err);
         }
       },
+
+      updateXP: async (amount) => {
+        const { user } = get();
+        if (!user?.id || isUpdatingXP) return;
+        isUpdatingXP = true;
+
+        try {
+          const newXP = Math.max(0, (user.xp || 0) + amount);
+          const newLevel = Math.floor(newXP / 100) + 1;
+
+          // Optimistic UI update
+          set({ user: { ...user, xp: newXP, level: newLevel } });
+
+          // Authoritative Supabase Database update
+          const { error } = await supabase
+            .from('users')
+            .update({ xp: newXP, level: newLevel })
+            .eq('id', user.id);
+
+          if (error) {
+            console.error('Failed to sync XP to Supabase:', error.message);
+          }
+        } catch (err) {
+          console.error('Failed to update XP:', err);
+        } finally {
+          isUpdatingXP = false;
+        }
+      },
+
       updateHearts: async (amount) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         const newHearts = Math.max(0, user.hearts + amount);
         set({ user: { ...user, hearts: newHearts } });
         try {
@@ -91,9 +150,10 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to sync Hearts:', err);
         }
       },
+
       updateAvatar: async (url) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         set({ user: { ...user, avatar_url: url } });
         try {
           await supabase.from('users').update({ avatar_url: url }).eq('id', user.id);
@@ -101,14 +161,17 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to sync Avatar:', err);
         }
       },
+
       updateTheme: (theme) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         set({ user: { ...user, selected_theme: theme } });
+        supabase.from('users').update({ selected_theme: theme }).eq('id', user.id).catch(() => {});
       },
+
       updateCoins: async (amount) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         const newCoins = Math.max(0, (user.coins || 0) + amount);
         set({ user: { ...user, coins: newCoins } });
         try {
@@ -117,9 +180,10 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to sync Coins:', err);
         }
       },
+
       completeTopic: async (id) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         if (user.completed_topics?.includes(id)) return;
         const updatedTopics = [...(user.completed_topics || []), id];
         set({ user: { ...user, completed_topics: updatedTopics } });
@@ -129,9 +193,10 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to sync Topics:', err);
         }
       },
+
       completeTest: async (score, total) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         const now = new Date().toISOString();
         set({ 
           user: { 
@@ -151,9 +216,10 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to sync Test results:', err);
         }
       },
+
       addPerk: async (perk, amount) => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         const updatedPerks = {
           ...(user.perks || { hints: 0, refills: 0 }),
           [perk]: (user.perks?.[perk] || 0) + amount
@@ -165,9 +231,10 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to sync Perks:', err);
         }
       },
+
       usePerk: async (perk) => {
         const { user } = get();
-        if (!user || !user.perks || user.perks[perk] <= 0) return false;
+        if (!user?.id || !user.perks || user.perks[perk] <= 0) return false;
 
         const updatedPerks = {
           ...(user.perks || { hints: 0, refills: 0 }),
@@ -182,16 +249,17 @@ export const useGameStore = create<GameState>()(
           return false;
         }
       },
+
       awardTimeXP: async () => {
         const { user } = get();
-        if (!user) return;
+        if (!user?.id) return;
         const today = new Date().toISOString().split('T')[0];
         const lastDate = user.last_time_xp_date;
         const earnedToday = lastDate === today ? (user.time_xp_earned_today || 0) : 0;
 
         if (earnedToday >= 30) return;
 
-        const newXP = user.xp + 1;
+        const newXP = (user.xp || 0) + 1;
         const newLevel = Math.floor(newXP / 100) + 1;
         const newEarned = earnedToday + 1;
 
@@ -216,20 +284,26 @@ export const useGameStore = create<GameState>()(
           console.error('Failed to award Time XP:', err);
         }
       },
+
       setBanInfo: (info) => set((state) => ({ 
         user: state.user ? { ...state.user, ban_info: info } : null 
       })),
-      syncWithDatabase: () => {
-        const { user } = get();
-        if (!user?.id) return;
-        if (activeChannel && banChannel) return;
 
+      syncWithDatabase: () => {
+        const { user, refreshUserFromDatabase } = get();
+        if (!user?.id) return;
+
+        // 1. Authoritative initial fetch on startup / refresh
+        refreshUserFromDatabase();
+
+        // 2. Realtime listener setup
         if (!activeChannel) {
           activeChannel = supabase
             .channel(`user-sync-${user.id}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, (payload) => {
               set((state) => ({
-                user: state.user ? { ...state.user, ...payload.new } : null
+                user: state.user ? { ...state.user, ...payload.new } : null,
+                isProfileLoaded: true,
               }));
             })
             .subscribe();
@@ -268,12 +342,13 @@ export const useGameStore = create<GameState>()(
 
         if (!timeXPInterval) {
           timeXPInterval = setInterval(() => {
-            if (document.visibilityState === 'visible') {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
               get().awardTimeXP();
             }
           }, 60 * 1000);
         }
       },
+
       logout: () => {
         if (activeChannel) {
           supabase.removeChannel(activeChannel);
@@ -287,7 +362,7 @@ export const useGameStore = create<GameState>()(
           clearInterval(timeXPInterval);
           timeXPInterval = null;
         }
-        set({ user: null });
+        set({ user: null, isProfileLoaded: false });
       },
     }),
     {
