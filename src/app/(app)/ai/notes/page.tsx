@@ -200,12 +200,6 @@ export default function AiNoteGeneratorPage() {
 
   // Run Question Detection on Complete Images with Deduplication Protection
   const handleAnalyzeImages = async () => {
-    const apiKey = getStoredApiKey();
-    if (!apiKey) {
-      setKeyModalOpen(true);
-      return;
-    }
-
     if (images.length === 0) {
       showToast({ type: 'warning', title: 'No Images', message: 'Please upload at least one image.' });
       return;
@@ -220,7 +214,7 @@ export default function AiNoteGeneratorPage() {
 
       for (let idx = 0; idx < images.length; idx++) {
         const img = images[idx];
-        const res = await detectQuestionsFromImage(img.base64, img.mimeType, selectedSubject, apiKey);
+        const res = await detectQuestionsFromImage(img.base64, img.mimeType, selectedSubject);
 
         if (res.isUnclear && res.questions.length === 0) {
           foundUnclear = true;
@@ -270,7 +264,20 @@ export default function AiNoteGeneratorPage() {
         message: `Detected ${allDetected.length} unique questions across image(s).`,
       });
     } catch (err: any) {
-      showToast({ type: 'error', title: 'Analysis Error', message: err?.message || 'Failed to detect questions.' });
+      const isPoolExhausted = err?.code === 'AI_POOL_EXHAUSTED' || err?.status === 503;
+      const errMsg = isPoolExhausted
+        ? 'AI service is temporarily busy. Please connect your own Gemini API key to continue.'
+        : err?.message || 'Failed to detect questions.';
+
+      showToast({
+        type: 'error',
+        title: isPoolExhausted ? 'AI Service Busy' : 'Analysis Error',
+        message: errMsg,
+      });
+
+      if (isPoolExhausted) {
+        setKeyModalOpen(true);
+      }
       setCurrentStep('upload');
     }
   };
@@ -291,12 +298,6 @@ export default function AiNoteGeneratorPage() {
 
   // Targeted Solving of Selected Questions in Selected Medium with Zero Duplicate Guarantee
   const handleGenerateFinalNotes = async () => {
-    const apiKey = getStoredApiKey();
-    if (!apiKey) {
-      setKeyModalOpen(true);
-      return;
-    }
-
     const rawSelectedToSolve = detectedQuestions.filter((q) => selectedQuestionIds.includes(q.id));
     if (rawSelectedToSolve.length === 0) {
       showToast({ type: 'warning', title: 'No Selection', message: 'Please select at least one question to solve.' });
@@ -314,8 +315,7 @@ export default function AiNoteGeneratorPage() {
         selectedToSolve,
         selectedMode,
         selectedSubject,
-        selectedMedium,
-        apiKey
+        selectedMedium
       );
 
       // 2. Validate Medium Language
@@ -327,8 +327,7 @@ export default function AiNoteGeneratorPage() {
             selectedToSolve,
             selectedMode,
             selectedSubject,
-            'Urdu Medium',
-            apiKey
+            'Urdu Medium'
           );
         }
       }
@@ -356,7 +355,20 @@ export default function AiNoteGeneratorPage() {
       setCurrentStep('results');
       showToast({ type: 'success', title: 'Notes Ready!', message: `Solved in ${selectedMedium} format.` });
     } catch (err: any) {
-      showToast({ type: 'error', title: 'Generation Failed', message: err?.message || 'Failed to generate note.' });
+      const isPoolExhausted = err?.code === 'AI_POOL_EXHAUSTED' || err?.status === 503;
+      const errMsg = isPoolExhausted
+        ? 'AI service is temporarily busy. Please connect your own Gemini API key to continue.'
+        : err?.message || 'Failed to generate note.';
+
+      showToast({
+        type: 'error',
+        title: isPoolExhausted ? 'AI Service Busy' : 'Generation Failed',
+        message: errMsg,
+      });
+
+      if (isPoolExhausted) {
+        setKeyModalOpen(true);
+      }
       setCurrentStep('confirm-mode');
     }
   };

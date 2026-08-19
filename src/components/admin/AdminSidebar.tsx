@@ -1,5 +1,5 @@
 'use client';
-import { Shield, Users, Lock, MessageCircle, Settings, LogOut, X, Ban } from 'lucide-react';
+import { Shield, Users, Lock, MessageCircle, Settings, LogOut, X, Ban, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminSidebarProps {
@@ -14,6 +14,7 @@ const tabs = [
   { id: 'roster', icon: Users, label: 'Student Roster' },
   { id: 'batches', icon: Lock, label: 'Manage Batches' },
   { id: 'resources', icon: MessageCircle, label: 'Resources & Chat' },
+  { id: 'keypool', icon: Key, label: 'Gemini Key Pool' },
   { id: 'bans', icon: Ban, label: 'Ban Management' },
   { id: 'settings', icon: Settings, label: 'System Settings' },
 ];

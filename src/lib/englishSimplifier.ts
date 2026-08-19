@@ -1,7 +1,7 @@
 // ==============================================================================
-// AL IMRAN TENSES LEARNER — ULTRA-EASY ENGLISH & SHORT ANSWER OPTIMIZER
-// Formatted specifically for Pakistani school and college students.
-// Automatically simplifies vocabulary and balances Short Mode for natural 2-mark completeness.
+// AL IMRAN TENSES LEARNER — ULTRA-EASY ENGLISH & SHORT/LONG ANSWER BALANCER
+// Formatted specifically for Pakistani school and college students (Matric / FSc).
+// Strictly controls Short Question length (1-4 sentences) and Long Question length (250-600 words).
 // ==============================================================================
 
 // Word replacement map: [RegExp matching whole word/phrase, replacement]
@@ -133,7 +133,6 @@ export function simplifyEnglishForPakistaniStudents(text: string): string {
 
   for (const [regex, replacement] of WORD_REPLACEMENTS) {
     simplified = simplified.replace(regex, (match) => {
-      // Preserve uppercase first letter if original had it
       if (match[0] === match[0].toUpperCase() && match[0] !== match[0].toLowerCase()) {
         return replacement.charAt(0).toUpperCase() + replacement.slice(1);
       }
@@ -146,14 +145,20 @@ export function simplifyEnglishForPakistaniStudents(text: string): string {
 }
 
 /**
- * Balances Short Answers for natural 2-mark completeness (Rules 42-45):
+ * Balances Short Answers for natural 2-mark exam completeness:
+ * - Strictly 1-4 sentences (approx 1-3 lines).
  * - Eliminates opening/trailing conversational fluff.
- * - Retains the direct answer + 1 short supporting phrase/clause so it does NOT feel incomplete.
- * - Target: 1 concise sentence or 2 short sentences (approx. 1-2 lines).
+ * - Retains the direct answer + 1 short supporting phrase/clause so meaning is 100% complete.
+ * - Never converts short answers into essays.
  */
 export function shortenShortAnswer(questionText: string, answerText: string, isUrdu = false): string {
   if (!answerText || typeof answerText !== 'string') return '';
-  if (isUrdu) return answerText.trim();
+  if (isUrdu) {
+    // For Urdu, clean leading greetings/fillers and ensure crispness
+    let urduClean = answerText.trim();
+    urduClean = urduClean.replace(/^(اس کا جواب یہ ہے کہ|جواب:\s*|جیسا کہ ہم جانتے ہیں کہ|مختصر الفاظ میں\s*)/u, '');
+    return urduClean.trim();
+  }
 
   let text = answerText.trim();
 
@@ -161,6 +166,7 @@ export function shortenShortAnswer(questionText: string, answerText: string, isU
   const openingFillers = [
     /^(it can be defined as|it is defined as|is defined as|it refers to the fact that|it simply refers to|it refers to|basically,|in simple words,|in simple terms,|we can say that|as we know that|according to physics,|according to biology,|according to chemistry,)\s*/i,
     /^(the term\s+["']?[a-z0-9\s]+["']?\s+means\s+that)\s*/i,
+    /^(sure,|here is the answer:|the answer is:?|to answer this question,)\s*/i,
   ];
 
   for (const pattern of openingFillers) {
@@ -168,28 +174,83 @@ export function shortenShortAnswer(questionText: string, answerText: string, isU
   }
 
   // Split into sentences
-  const sentences = text.split(/(?<=[.?!])\s+/).filter((s) => s.trim().length > 0);
-  
-  // For 2-mark questions, keep 1 or 2 concise sentences with supporting explanation
-  if (sentences.length > 2) {
-    const qLower = (questionText || '').toLowerCase();
-    const isFormulaOrUnit = qLower.includes('formula') || qLower.includes('unit') || qLower.includes('si unit');
+  const sentences = text
+    .split(/(?<=[.?!])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
-    if (isFormulaOrUnit) {
-      text = sentences[0];
-    } else {
-      text = sentences.slice(0, 2).join(' ');
-    }
+  const qLower = (questionText || '').toLowerCase();
+  const isFormulaOrUnit =
+    qLower.includes('formula') ||
+    qLower.includes('unit') ||
+    qLower.includes('si unit') ||
+    qLower.includes('symbol');
+  const isDifference = qLower.includes('difference') || qLower.includes('distinguish') || qLower.includes('compare');
+
+  if (isFormulaOrUnit && sentences.length > 1) {
+    // Keep primary formula/unit sentence
+    text = sentences.slice(0, 2).join(' ');
+  } else if (isDifference && sentences.length > 4) {
+    // Keep max 2-3 comparison points
+    text = sentences.slice(0, 3).join(' ');
+  } else if (sentences.length > 3) {
+    // Normal short question target: 1-3 sentences
+    text = sentences.slice(0, 3).join(' ');
   }
 
-  // Strip excessive unrelated trailing filler while keeping helpful context
-  text = text.replace(/\s*(this (process|is|concept) is very important for daily life.*|[.]\s*it plays a crucial role in the universe.*)$/i, '.');
+  // Strip excessive unrelated trailing filler
+  text = text.replace(
+    /\s*(this (process|is|concept|formula) is (very )?important for daily life.*|[.]\s*it plays a crucial role in the universe.*)$/i,
+    '.'
+  );
 
   text = text.trim();
   if (text.length > 0) {
     text = text.charAt(0).toUpperCase() + text.slice(1);
     if (!/[.!?]$/.test(text) && !text.includes('=')) {
       text += '.';
+    }
+  }
+
+  return simplifyEnglishForPakistaniStudents(text);
+}
+
+/**
+ * Balances Long Answers to ensure comprehensive exam quality (250-600 words)
+ * without turning into 2-4 pages of redundant fluff or repeating points.
+ */
+export function balanceLongAnswer(questionText: string, answerText: string, isUrdu = false): string {
+  if (!answerText || typeof answerText !== 'string') return '';
+  if (isUrdu) return answerText.trim();
+
+  let text = answerText.trim();
+
+  // Strip robotic AI chat openers
+  text = text.replace(/^(sure thing!|here is the detailed explanation:|certainly!)\s*/i, '');
+
+  // Remove redundant repeated conclusion sentences
+  text = text.replace(/\n\s*In conclusion,\s*as stated above[^\n]+/gi, '');
+
+  // Count words to ensure it stays within 250-600 word limit
+  const words = text.split(/\s+/);
+  if (words.length > 650) {
+    // Trim back to around 550 words while preserving paragraph completion
+    const paragraphs = text.split(/\n\n+/);
+    let cumulativeWordCount = 0;
+    const keptParagraphs: string[] = [];
+
+    for (const p of paragraphs) {
+      const pWords = p.trim().split(/\s+/).length;
+      if (cumulativeWordCount + pWords <= 600 || keptParagraphs.length < 2) {
+        keptParagraphs.push(p.trim());
+        cumulativeWordCount += pWords;
+      } else {
+        break;
+      }
+    }
+
+    if (keptParagraphs.length > 0) {
+      text = keptParagraphs.join('\n\n');
     }
   }
 

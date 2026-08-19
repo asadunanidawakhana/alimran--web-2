@@ -137,10 +137,10 @@ export default function ApiKeyModal({
           {/* Instructions Box */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 mb-6 space-y-2">
             <p className="text-slate-700 font-semibold text-sm leading-relaxed">
-              Enter your Gemini API key to use Al Imran Tenses Learner AI.
+              Connect your Google Gemini API key to continue uninterrupted.
             </p>
             <p className="text-xs text-slate-500 font-medium leading-normal">
-              Your key remains in your local browser and is never stored on external servers or exposed.
+              Al Imran AI features a high-capacity managed key pool. Connecting your own free API key acts as an instant dedicated backup whenever public traffic is high.
             </p>
           </div>
 

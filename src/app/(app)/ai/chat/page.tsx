@@ -212,12 +212,6 @@ export default function AiChatPage() {
     const query = (textToSend || input).trim();
     if (!query || isLoading || !selectedSubject) return;
 
-    const apiKey = getStoredApiKey();
-    if (!apiKey) {
-      setKeyModalOpen(true);
-      return;
-    }
-
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -232,7 +226,7 @@ export default function AiChatPage() {
 
     try {
       // Pass full conversation history for multi-turn context retention
-      const aiReply = await sendChatMessage(messages, query, selectedSubject, apiKey);
+      const aiReply = await sendChatMessage(messages, query, selectedSubject);
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'model',
@@ -241,16 +235,27 @@ export default function AiChatPage() {
       };
       setMessages([...updatedMessages, aiMessage]);
     } catch (err: any) {
-      const errMsg = err?.message || 'Unable to connect to Gemini AI. Please check your API key.';
+      const isPoolExhausted = err?.code === 'AI_POOL_EXHAUSTED' || err?.status === 503;
+      const errMsg = isPoolExhausted
+        ? 'AI service is temporarily busy. Please connect your own Gemini API key to continue.'
+        : err?.message || 'Unable to connect to AI tutor. Please check your internet connection.';
+
       showToast({
         type: 'error',
-        title: 'AI Chat Error',
+        title: isPoolExhausted ? 'AI Service Busy' : 'AI Chat Error',
         message: errMsg,
       });
+
+      if (isPoolExhausted) {
+        setKeyModalOpen(true);
+      }
+
       const errorReply: ChatMessage = {
         id: `ai-err-${Date.now()}`,
         role: 'model',
-        content: `⚠️ **Connection Issue:** ${errMsg}\n\nApna Gemini API key verify karein ya internet connection check karein.`,
+        content: isPoolExhausted
+          ? `⚠️ **AI Service Busy:** AI service par is waqt temporary traffic hai. Aap "Connect Gemini Key" button par click kar ke apni free API key connect kar sakte hain.`
+          : `⚠️ **Connection Issue:** ${errMsg}\n\nDobara koshish karein ya internet connection check karein.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages([...updatedMessages, errorReply]);

@@ -9,6 +9,7 @@ import BatchManager from '@/components/admin/BatchManager';
 import ResourceChat from '@/components/admin/ResourceChat';
 import SystemSettings from '@/components/admin/SystemSettings';
 import BanManager from '@/components/admin/BanManager';
+import KeyPoolMonitor from '@/components/admin/KeyPoolMonitor';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu } from 'lucide-react';
 import { showToast } from '@/components/ToastNotification';
@@ -18,7 +19,7 @@ export default function AdminPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'roster' | 'batches' | 'resources' | 'settings' | 'bans'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'batches' | 'resources' | 'settings' | 'bans' | 'keypool'>('roster');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
 
@@ -299,6 +300,9 @@ export default function AdminPage() {
               )}
               {activeTab === 'bans' && (
                 <BanManager students={students} />
+              )}
+              {activeTab === 'keypool' && (
+                <KeyPoolMonitor />
               )}
             </motion.div>
           </AnimatePresence>

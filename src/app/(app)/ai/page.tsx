@@ -2,27 +2,24 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { MessageSquareText, FileText, Sparkles, Key, CheckCircle2, ChevronRight, BookOpen, ShieldCheck, Zap, HelpCircle } from 'lucide-react';
+import { MessageSquareText, FileText, Sparkles, Key, CheckCircle2, ChevronRight, ShieldCheck, Zap } from 'lucide-react';
 import { getStoredApiKey } from '@/lib/gemini';
 import ApiKeyModal from '@/components/ai/ApiKeyModal';
 
 export default function AiDashboardPage() {
   const router = useRouter();
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [hasCustomKey, setHasCustomKey] = useState<boolean>(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
 
   const refreshKeyState = () => {
     const key = getStoredApiKey();
     const exists = Boolean(key && key.trim().length > 5);
-    setHasKey(exists);
+    setHasCustomKey(exists);
     return exists;
   };
 
   useEffect(() => {
-    const exists = refreshKeyState();
-    if (!exists) {
-      setKeyModalOpen(true);
-    }
+    refreshKeyState();
   }, []);
 
   return (
@@ -33,17 +30,15 @@ export default function AiDashboardPage() {
         {/* Header Navigation & Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                Next-Gen Learning
+                Managed AI Service
               </span>
-              {hasKey && (
-                <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Gemini Connected
-                </span>
-              )}
+              <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {hasCustomKey ? 'Custom Key Connected' : 'AI Pool Ready'}
+              </span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
               Al Imran AI Assistant
@@ -60,36 +55,11 @@ export default function AiDashboardPage() {
             className="self-start sm:self-center inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm transition-all text-xs tracking-wider uppercase active:scale-95"
           >
             <Key className="w-4 h-4 text-blue-600" />
-            <span>{hasKey ? 'Gemini Key Settings' : 'Configure Gemini Key'}</span>
+            <span>{hasCustomKey ? 'Manage Custom Key' : 'Connect Personal Key'}</span>
           </button>
         </div>
 
-        {/* AI Key Status Notice (if not yet configured) */}
-        {!hasKey && hasKey !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-50 border border-amber-200/80 rounded-3xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-          >
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-amber-900 flex items-center gap-2">
-                <Key className="w-4 h-4 text-amber-600" />
-                Gemini API Key Required
-              </h3>
-              <p className="text-xs text-amber-700 font-medium leading-relaxed">
-                Connect your Google Gemini API key to activate AI chat and smart note generation for free.
-              </p>
-            </div>
-            <button
-              onClick={() => setKeyModalOpen(true)}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase tracking-widest px-5 py-3 rounded-xl shadow-md shadow-amber-600/20 transition-all whitespace-nowrap active:scale-95"
-            >
-              Enter API Key
-            </button>
-          </motion.div>
-        )}
-
-        {/* Feature Cards Grid (Two Primary Choices) */}
+        {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
           
           {/* Option 1: Chat with AI */}
@@ -116,7 +86,7 @@ export default function AiDashboardPage() {
                   Chat with AI
                 </h2>
                 <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                  Ask any question regarding English tenses, grammar rules, active/passive voice, sentence formulas, or exam queries. Get simple, student-friendly answers.
+                  Ask any question regarding English tenses, grammar rules, active/passive voice, sentence formulas, or exam queries. Get simple, student-friendly answers in Hinglish/Roman Urdu.
                 </p>
               </div>
 
@@ -140,10 +110,7 @@ export default function AiDashboardPage() {
             <div className="pt-8 relative z-10">
               <button
                 id="open-ai-chat-btn"
-                onClick={() => {
-                  if (!hasKey) setKeyModalOpen(true);
-                  else router.push('/ai/chat');
-                }}
+                onClick={() => router.push('/ai/chat')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest active:scale-98"
               >
                 <span>Launch AI Chat</span>
@@ -176,7 +143,7 @@ export default function AiDashboardPage() {
                   Generate Notes with AI
                 </h2>
                 <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                  Upload photos of textbook questions or past papers. AI inspects the question and renders crisp, downloadable high-res note cards with subtle branding.
+                  Upload photos of textbook questions or past papers. AI inspects the question, prevents duplicate text, and renders crisp, downloadable high-res note cards.
                 </p>
               </div>
 
@@ -188,7 +155,7 @@ export default function AiDashboardPage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  <span>2-Mark Short &amp; 6-Mark Long question modes</span>
+                  <span>Strict 2-Mark Short &amp; 6-Mark Long question modes</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
@@ -200,10 +167,7 @@ export default function AiDashboardPage() {
             <div className="pt-8 relative z-10">
               <button
                 id="open-ai-notes-btn"
-                onClick={() => {
-                  if (!hasKey) setKeyModalOpen(true);
-                  else router.push('/ai/notes');
-                }}
+                onClick={() => router.push('/ai/notes')}
                 className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-2xl shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest active:scale-98"
               >
                 <span>Open Note Generator</span>
@@ -220,9 +184,9 @@ export default function AiDashboardPage() {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-900">Your Privacy is Protected</p>
+              <p className="text-xs font-bold text-slate-900">Secure AI Infrastructure</p>
               <p className="text-[11px] text-slate-500 font-medium">
-                Your API key and study queries stay private and secure on your local device.
+                Automatic API failover &amp; server-side pool management ensures uninterrupted access.
               </p>
             </div>
           </div>
